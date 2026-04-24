@@ -7,6 +7,14 @@ set -e
 HERMES_HOME="${HERMES_HOME:-/root/.hermes}"
 mkdir -p "$HERMES_HOME/logs"
 
+# Patch Workspace's terminal-input rate limit (default 10 req/60s is sized for
+# API abuse but breaks interactive typing — xterm.js sends 1 POST per keystroke).
+# Bump to 10000 req/60s. Matches on the literal pattern in the built JS bundle,
+# so it survives Workspace version updates with different filename hashes.
+for f in /opt/workspace/dist/server/assets/router-*.js; do
+  [ -f "$f" ] && sed -i 's|`terminal:${ip}`, 10, 6e4|`terminal:${ip}`, 10000, 6e4|g' "$f"
+done
+
 echo "[entrypoint] Starting hermes gateway..."
 hermes gateway >> "$HERMES_HOME/logs/gateway.log" 2>&1 &
 GATEWAY_PID=$!
