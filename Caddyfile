@@ -18,28 +18,42 @@
 		hermes {$HERMES_PASSWORD_HASH}
 	}
 
-	# Viewer — browse the whole /root/.hermes volume read-only.
-	# Secrets and internal state files are hidden (never listed, 404 on direct access).
+	# Viewer — browse /root/.hermes read-only with explicit secret blocklist.
 	redir /viewer /viewer/ 302
 
 	handle_path /viewer/* {
 		root * /root/.hermes
 
-		# Render plain-text extensions inline instead of triggering a download.
+		# Explicit 404 for secrets + internal-state files. path matchers here
+		# are evaluated AFTER handle_path strips /viewer/, so patterns are
+		# relative to /root/.hermes.
+		@blocked path /auth.json /auth.lock /.env /.gitconfig /.skills_prompt_snapshot.json
+		@blocked path /gateway.lock /gateway.pid /gateway_state.json
+		@blocked path /channel_directory.json /models_dev_cache.json /context_length_cache.yaml
+		@blocked path /response_store.db /response_store.db-shm /response_store.db-wal
+		@blocked path /state.db /state.db-shm /state.db-wal
+		@blocked path /lost+found/* /cache/* /sandboxes/*
+		@blocked path *.lock *.pid
+		respond @blocked "" 404
+
+		# Force inline text rendering so browsers don't download yaml/md/json etc.
 		@text path *.yaml *.yml *.md *.txt *.log *.py *.sh *.js *.ts *.css *.json *.toml *.ini *.conf *.cfg
 		header @text Content-Type "text/plain; charset=utf-8"
 		header @text Content-Disposition "inline"
 
-		# Dotfiles are visible only for things worth seeing. SQLite + lock + pid
-		# noise stays out of listings and is unreachable by direct URL.
+		# Prevent Railway/Fastly from caching viewer responses — files change
+		# on the volume and we don't want stale content served after edits.
+		header Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+
+		# Directory listings also hide blocked files (cosmetic; 404 above is
+		# the real guard).
 		file_server browse {
 			hide auth.json auth.lock .env .gitconfig .skills_prompt_snapshot.json
-			hide *.lock *.pid
+			hide gateway.lock gateway.pid gateway_state.json
+			hide channel_directory.json models_dev_cache.json context_length_cache.yaml
 			hide response_store.db response_store.db-shm response_store.db-wal
 			hide state.db state.db-shm state.db-wal
-			hide gateway_state.json gateway.lock gateway.pid
-			hide channel_directory.json models_dev_cache.json context_length_cache.yaml
-			hide lost+found cache
+			hide lost+found cache sandboxes
 		}
 	}
 
