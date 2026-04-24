@@ -1,0 +1,46 @@
+name: Auto-rebuild Hermes
+
+# Nightly rebuild of the hermes-agent Railway service. This pulls a fresh
+# `nousresearch/hermes-agent:latest` on each run, picking up whatever
+# upstream dashboard/gateway changes Nous has republished to Docker Hub.
+#
+# Does NOT bump Hermes past what Nous has in `:latest`. See
+# uncanny-state/Infrastructure/hermes-agent.md for the full freshness
+# discussion.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'       # daily 04:00 UTC — low user-impact window
+  workflow_dispatch:           # manual trigger from GitHub Actions UI
+
+concurrency:
+  group: hermes-auto-rebuild
+  cancel-in-progress: false
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Railway redeploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_ENV_ID: a1b60778-0bbf-4323-a6b1-90da553c313a
+          RAILWAY_SERVICE_ID: ba856647-e583-4d01-9566-268870567845
+        run: |
+          set -euo pipefail
+
+          response=$(curl -sSf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\":\"mutation { serviceInstanceRedeploy(environmentId: \\\"$RAILWAY_ENV_ID\\\", serviceId: \\\"$RAILWAY_SERVICE_ID\\\") }\"}")
+
+          echo "Railway GraphQL response:"
+          echo "$response"
+
+          # curl --fail doesn't catch 200-with-body-errors — GraphQL returns 200
+          # with an `errors` array when the mutation is rejected (bad scope, bad
+          # ID, etc.). Parse the body and fail the job if errors are present.
+          echo "$response" | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(1 if d.get("errors") else 0)'
+
+          echo "Redeploy triggered successfully."
