@@ -18,11 +18,6 @@
 		hermes {$HERMES_PASSWORD_HASH}
 	}
 
-	# Legacy /viewer/* URLs (pre-hermes-files plugin) redirect to /files.
-	# 301 — browser caches the redirect so old bookmarks auto-update.
-	redir /viewer /files 301
-	redir /viewer/* /files 301
-
 	# Reverse proxy to the native Hermes dashboard on loopback.
 	# Host header rewrite satisfies the dashboard's DNS-rebinding protection
 	# (it accepts only loopback hostnames when bound to 127.0.0.1).
