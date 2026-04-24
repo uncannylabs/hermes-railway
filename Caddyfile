@@ -26,14 +26,9 @@
 
 		# Explicit 404 for secrets + internal-state files. path matchers here
 		# are evaluated AFTER handle_path strips /viewer/, so patterns are
-		# relative to /root/.hermes.
-		@blocked path /auth.json /auth.lock /.env /.gitconfig /.skills_prompt_snapshot.json
-		@blocked path /gateway.lock /gateway.pid /gateway_state.json
-		@blocked path /channel_directory.json /models_dev_cache.json /context_length_cache.yaml
-		@blocked path /response_store.db /response_store.db-shm /response_store.db-wal
-		@blocked path /state.db /state.db-shm /state.db-wal
-		@blocked path /lost+found/* /cache/* /sandboxes/*
-		@blocked path *.lock *.pid
+		# relative to /root/.hermes. All patterns must be on ONE path line —
+		# Caddy rejects stacked `@name path` lines as duplicate matcher defs.
+		@blocked path /auth.json /auth.lock /.env /.gitconfig /.skills_prompt_snapshot.json /gateway.lock /gateway.pid /gateway_state.json /channel_directory.json /models_dev_cache.json /context_length_cache.yaml /response_store.db /response_store.db-shm /response_store.db-wal /state.db /state.db-shm /state.db-wal /lost+found/* /cache/* /sandboxes/* *.lock *.pid
 		respond @blocked "" 404
 
 		# Force inline text rendering so browsers don't download yaml/md/json etc.
