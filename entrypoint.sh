@@ -4,23 +4,16 @@
 
 set -e
 
-mkdir -p /opt/data/logs
-
-# Compatibility symlink for Workspace: its Node code defaults to
-# `path.join(os.homedir(), ".hermes")` for Terminal cwd + Sessions paths.
-# Point /root/.hermes at /opt/data so both HERMES_HOME consumers and
-# homedir-based consumers resolve to the same volume.
-if [ ! -e /root/.hermes ]; then
-  ln -s /opt/data /root/.hermes
-fi
+HERMES_HOME="${HERMES_HOME:-/root/.hermes}"
+mkdir -p "$HERMES_HOME/logs"
 
 echo "[entrypoint] Starting hermes gateway..."
-hermes gateway >> /opt/data/logs/gateway.log 2>&1 &
+hermes gateway >> "$HERMES_HOME/logs/gateway.log" 2>&1 &
 GATEWAY_PID=$!
 echo "[entrypoint] hermes gateway pid=$GATEWAY_PID"
 
 echo "[entrypoint] Starting hermes dashboard on 127.0.0.1:9119..."
-hermes dashboard --host 127.0.0.1 --port 9119 --no-open >> /opt/data/logs/dashboard.log 2>&1 &
+hermes dashboard --host 127.0.0.1 --port 9119 --no-open >> "$HERMES_HOME/logs/dashboard.log" 2>&1 &
 DASHBOARD_PID=$!
 echo "[entrypoint] hermes dashboard pid=$DASHBOARD_PID"
 

@@ -2,7 +2,7 @@
 
 Thin Railway deployment wrapper for [Nous Research's Hermes Agent](https://github.com/NousResearch/hermes-agent) plus the [outsourc-e/hermes-workspace](https://github.com/outsourc-e/hermes-workspace) browser cockpit.
 
-Three processes in one Railway container, all sharing the persistent volume mounted at `/opt/data`:
+Three processes in one Railway container, all sharing the persistent volume mounted at `/root/.hermes`:
 
 - `hermes gateway` — messaging gateway (Telegram, Discord, Slack, etc.)
 - `hermes dashboard` — admin REST API (127.0.0.1:9119, localhost only)
@@ -16,10 +16,10 @@ Three processes in one Railway container, all sharing the persistent volume moun
 ## Railway setup
 
 - Connect this repo to a Railway service
-- Attach persistent volume at `/opt/data`
+- Attach persistent volume at `/root/.hermes` (matches Workspace's homedir-based default paths — no symlinks needed)
 - Generate a public domain targeting port 3000 (Workspace login page)
 - Required env vars:
-  - `HERMES_HOME=/opt/data`
+  - `HERMES_HOME=/root/.hermes`
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_HOME_CHANNEL`
   - `API_SERVER_ENABLED=true`, `API_SERVER_HOST=127.0.0.1`, `API_SERVER_PORT=8642`, `API_SERVER_KEY=<generate strong random>`
   - `HERMES_API_URL=http://127.0.0.1:8642`, `HERMES_API_TOKEN=<same as API_SERVER_KEY>`, `HERMES_DASHBOARD_URL=http://127.0.0.1:9119`
