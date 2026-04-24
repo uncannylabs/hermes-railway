@@ -29,7 +29,6 @@ RUN apt-get update \
   && chmod +x /usr/local/bin/caddy
 
 COPY Caddyfile /etc/caddy/Caddyfile
-COPY viewer-index.html /etc/caddy/viewer/index.html
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
