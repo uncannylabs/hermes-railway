@@ -1,42 +1,44 @@
 # syntax=docker/dockerfile:1.6
-# Railway deployment wrapper for NousResearch/hermes-agent + outsourc-e/hermes-workspace
-# Three processes in one container, all sharing /root/.hermes:
-#   - hermes gateway         messaging (Telegram, Discord, etc.)
-#   - hermes dashboard       admin REST API + web UI (127.0.0.1:9119)
-#   - hermes-workspace       browser cockpit UI (0.0.0.0:3000, public)
-# Base image is Nous's official hermes-agent Docker image — has Python,
-# hermes-agent[all], AND the prebuilt dashboard web frontend. We add Node
-# 22 + outsourc-e/hermes-workspace on top. No fork of either upstream.
+# Railway deployment wrapper for NousResearch/hermes-agent — native v0.11.0 dashboard.
+# Single public surface: Caddy on $PORT with HTTP Basic Auth in front of:
+#   - /                    → native Hermes dashboard (127.0.0.1:9119)
+#   - /viewer/memory/*     → read-only browse of /root/.hermes/memories
+#   - /viewer/skills/*     → read-only browse of /root/.hermes/skills
+#   - /viewer/soul         → SOUL.md
+#   - /viewer/config.yaml  → config.yaml
+#
+# Processes in one container, all sharing the /root/.hermes volume:
+#   - hermes gateway       messaging (Telegram, Discord, etc.)
+#   - hermes dashboard     admin REST API + web UI (127.0.0.1:9119, loopback only)
+#   - caddy                public HTTP + basic auth (0.0.0.0:$PORT)
+#
+# No forks. Base image is Nous's official hermes-agent image. Caddy static binary.
 
 FROM nousresearch/hermes-agent:latest
 
 USER root
 
-# Install Node.js 22 (required by hermes-workspace runtime) + tini
+ARG CADDY_VERSION=2.8.4
+
+# tini (clean PID 1) + Caddy static binary
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl ca-certificates tini gnupg \
-  && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-  && apt-get install -y --no-install-recommends nodejs \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends curl ca-certificates tini \
+  && apt-get clean && rm -rf /var/lib/apt/lists/* \
+  && curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_amd64.tar.gz" \
+     | tar -xz -C /usr/local/bin caddy \
+  && chmod +x /usr/local/bin/caddy
 
-# Copy prebuilt Workspace from outsourc-e's GHCR image
-COPY --from=ghcr.io/outsourc-e/hermes-workspace:latest /app /opt/workspace
-
-# Multi-process entrypoint
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY viewer-index.html /etc/caddy/viewer/index.html
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# $HERMES_HOME is /root/.hermes to match Workspace's os.homedir()/.hermes default.
-# Railway volume mounts at /root/.hermes — all three processes share that dir.
-# PATH prepends /opt/hermes/.venv/bin so `hermes` CLI resolves without having
-# to source the venv activation script (Nous's stock entrypoint sources it;
-# we bypass that entrypoint with our multi-process supervisor).
+# HERMES_HOME matches the Railway volume mount.
+# PATH prepends /opt/hermes/.venv/bin so `hermes` CLI resolves in shells.
 ENV PYTHONUNBUFFERED=1 \
     HERMES_HOME=/root/.hermes \
     PATH=/opt/hermes/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-    NODE_ENV=production \
-    PORT=3000 \
-    HOST=0.0.0.0
+    PORT=3000
 
 EXPOSE 3000
 

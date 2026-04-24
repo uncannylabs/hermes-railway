@@ -1,0 +1,71 @@
+{
+	auto_https off
+	admin off
+	persist_config off
+}
+
+:{$PORT:3000} {
+	log {
+		output stdout
+		format console
+		level INFO
+	}
+
+	# Gate the entire surface behind HTTP Basic Auth.
+	# Username: hermes
+	# Password: $HERMES_PASSWORD (bcrypt hash computed at entrypoint startup)
+	basic_auth {
+		hermes {$HERMES_PASSWORD_HASH}
+	}
+
+	# Viewer — read-only browse of selected paths under /root/.hermes.
+	# Bare /viewer redirects to /viewer/ (trailing slash) so index.html loads.
+	redir /viewer /viewer/ 302
+
+	# Landing page
+	handle /viewer/ {
+		root * /etc/caddy/viewer
+		file_server
+	}
+
+	# Memories: /root/.hermes/memories/**
+	handle_path /viewer/memory/* {
+		root * /root/.hermes/memories
+		file_server browse
+	}
+	handle /viewer/memory {
+		redir /viewer/memory/ 302
+	}
+
+	# Skills: /root/.hermes/skills/**
+	handle_path /viewer/skills/* {
+		root * /root/.hermes/skills
+		file_server browse
+	}
+	handle /viewer/skills {
+		redir /viewer/skills/ 302
+	}
+
+	# SOUL.md — direct file.
+	handle /viewer/soul {
+		root * /root/.hermes
+		rewrite * /SOUL.md
+		file_server
+	}
+
+	# config.yaml — direct file (contains model config, no secrets).
+	handle /viewer/config.yaml {
+		root * /root/.hermes
+		rewrite * /config.yaml
+		file_server
+	}
+
+	# Everything else — reverse proxy to native Hermes dashboard.
+	# Rewrite Host header to 127.0.0.1 so the dashboard's DNS-rebinding
+	# protection (Host allowlist in loopback bind mode) accepts the request.
+	handle {
+		reverse_proxy 127.0.0.1:9119 {
+			header_up Host 127.0.0.1
+		}
+	}
+}

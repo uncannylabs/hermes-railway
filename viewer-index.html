@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hermes viewer</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0b0d;
+    --fg: #e7e7ea;
+    --muted: #7a7a85;
+    --accent: #8ab4ff;
+    --line: #1e1e24;
+    --card: #131317;
+  }
+  html, body { background: var(--bg); color: var(--fg); }
+  body {
+    font: 15px/1.6 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 720px;
+    margin: 3rem auto;
+    padding: 0 1.25rem;
+  }
+  h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 .25rem; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 2rem; font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .row { display: flex; align-items: baseline; gap: 1rem; padding: .85rem 1.1rem; border-top: 1px solid var(--line); text-decoration: none; color: inherit; }
+  .row:first-child { border-top: 0; }
+  .row:hover { background: #191922; }
+  .row .name { font-weight: 500; color: var(--fg); flex: 0 0 auto; min-width: 120px; }
+  .row .path { color: var(--muted); font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace; }
+  .back { display: inline-block; margin-top: 2rem; color: var(--accent); text-decoration: none; font-size: 13px; }
+  .back:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <h1>Hermes viewer</h1>
+  <p class="sub">Read-only browse of selected paths on the Hermes container volume.</p>
+  <div class="card">
+    <a class="row" href="memory/">
+      <span class="name">Memories</span>
+      <span class="path">/root/.hermes/memories/</span>
+    </a>
+    <a class="row" href="skills/">
+      <span class="name">Skills</span>
+      <span class="path">/root/.hermes/skills/</span>
+    </a>
+    <a class="row" href="soul">
+      <span class="name">SOUL.md</span>
+      <span class="path">/root/.hermes/SOUL.md</span>
+    </a>
+    <a class="row" href="config.yaml">
+      <span class="name">config.yaml</span>
+      <span class="path">/root/.hermes/config.yaml</span>
+    </a>
+  </div>
+  <a class="back" href="/">&larr; back to dashboard</a>
+</body>
+</html>
