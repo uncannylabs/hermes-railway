@@ -24,6 +24,7 @@
 
 	# Landing page
 	handle /viewer/ {
+		rewrite * /index.html
 		root * /etc/caddy/viewer
 		file_server
 	}
