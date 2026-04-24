@@ -25,7 +25,7 @@ Three processes in one Railway container, all sharing the persistent volume moun
   - `HERMES_API_URL=http://127.0.0.1:8642`, `HERMES_API_TOKEN=<same as API_SERVER_KEY>`, `HERMES_DASHBOARD_URL=http://127.0.0.1:9119`
   - `HERMES_PASSWORD=<your browser login password>`
 - First boot: SSH in and run `hermes auth add openai-codex --type oauth --no-browser --timeout 900` to bootstrap Codex OAuth (device-code flow)
-- Then `hermes config set model.default gpt-5.3-codex` and `hermes config set model.provider openai-codex`
+- Then `hermes config set model.default gpt-5.5-codex` and `hermes config set model.provider openai-codex` (v0.11.0+ has live model discovery via Codex OAuth — picker shows whatever OpenAI has currently exposed)
 
 ## Upstream update cadence
 
