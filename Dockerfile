@@ -28,8 +28,12 @@ RUN chmod +x /entrypoint.sh
 
 # $HERMES_HOME is /root/.hermes to match Workspace's os.homedir()/.hermes default.
 # Railway volume mounts at /root/.hermes — all three processes share that dir.
+# PATH prepends /opt/hermes/.venv/bin so `hermes` CLI resolves without having
+# to source the venv activation script (Nous's stock entrypoint sources it;
+# we bypass that entrypoint with our multi-process supervisor).
 ENV PYTHONUNBUFFERED=1 \
     HERMES_HOME=/root/.hermes \
+    PATH=/opt/hermes/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0
