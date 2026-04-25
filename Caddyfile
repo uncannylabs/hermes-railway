@@ -11,32 +11,41 @@
 		level INFO
 	}
 
-	# Public static assets — bypass basic_auth.
+	# Bypass basic_auth for paths the SPA fetches programmatically.
 	#
-	# The dashboard's index.html includes <script crossorigin> and
-	# <link crossorigin> tags pointing at /assets/index-*.js + .css.
-	# Browsers (notably mobile Safari) fetching crossorigin="anonymous"
-	# resources do NOT reliably attach cached HTTP Basic Auth credentials,
-	# even though the asset is same-origin. The asset request hits Caddy
-	# without auth → 401 + WWW-Authenticate → fresh login prompt.
+	# Why: HTTP Basic Auth is auto-attached by browsers ONLY on full page
+	# navigations. For fetch() / XHR calls in CORS mode (which is what the
+	# dashboard SPA uses for every /api/* call — see Sec-Fetch-Mode: cors
+	# in access logs), the cached basic_auth credentials are NOT attached.
+	# The fetch hits Caddy with no auth → Caddy returns 401 + WWW-Authenticate
+	# → browser interprets as fresh auth challenge → re-prompts user even
+	# though they already logged in.
 	#
-	# Symptom: every dashboard rebuild changes the bundle hash, the cached
-	# asset is invalidated, the browser refetches, and the user gets
-	# prompted in an infinite loop. Triggered by our nightly auto-rebuild
-	# pulling fresh nousresearch/hermes-agent:latest with new bundle hashes.
+	# Symptom (2026-04-25): infinite "Sign in" loop on https://hermes.uncannylabs.ai
+	# after first login. Every /api/sessions, /api/status, etc. fetch
+	# triggered another prompt.
 	#
-	# These paths contain no secrets — compiled JS/CSS/icons/fonts only —
-	# so leaving them un-gated is safe. The sensitive surface (/, /api/*)
-	# stays behind Basic Auth.
-	@public path /assets/* /favicon.ico /favicon.svg /robots.txt /manifest.json /apple-touch-icon.png
-	handle @public {
+	# Fix: bypass basic_auth for the API + static surface. Dashboard's own
+	# ephemeral session token (X-Hermes-Session-Token, regenerated per
+	# dashboard restart, injected into the SPA HTML) is the real auth on
+	# /api/* — and its 401 does NOT include WWW-Authenticate, so it
+	# doesn't trigger browser prompts.
+	#
+	# Security model: basic_auth gates the perimeter (initial page load
+	# of /, /sessions, /config, etc — full page navigations). The session
+	# token gates /api/* (defense in depth). An attacker can hit /api/*
+	# without basic_auth but can't get a valid session token without
+	# loading / first, which IS gated.
+	@passthrough path /api/* /assets/* /dashboard-plugins/* /favicon.ico /favicon.svg /robots.txt /manifest.json /apple-touch-icon.png
+	handle @passthrough {
 		reverse_proxy 127.0.0.1:9119 {
 			header_up Host 127.0.0.1
 		}
 	}
 
-	# Everything else (dashboard SPA root, /api/*, /api/plugins/*) is gated
-	# behind HTTP Basic Auth.
+	# All other paths (/, /sessions, /config, /skills, /plugins, /files,
+	# /cron, /logs, /analytics, /system, etc. — i.e., SPA navigation routes
+	# that load the index.html shell) require Basic Auth.
 	# Username: hermes
 	# Password: $HERMES_PASSWORD (bcrypt hash computed at entrypoint startup)
 	basic_auth {
