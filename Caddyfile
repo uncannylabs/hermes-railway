@@ -11,51 +11,62 @@
 		level INFO
 	}
 
-	# Bypass basic_auth for paths the SPA fetches programmatically.
+	# IMPORTANT — directive ordering in Caddy:
+	# `basic_auth` and `reverse_proxy` at the site-block top level run in
+	# Caddy's CANONICAL order regardless of declaration order. basic_auth
+	# always runs before any handle block. To carve out an exemption, the
+	# basic_auth must live INSIDE a `handle` block — the matcher then gates
+	# whether basic_auth runs at all for that request.
 	#
-	# Why: HTTP Basic Auth is auto-attached by browsers ONLY on full page
-	# navigations. For fetch() / XHR calls in CORS mode (which is what the
-	# dashboard SPA uses for every /api/* call — see Sec-Fetch-Mode: cors
-	# in access logs), the cached basic_auth credentials are NOT attached.
-	# The fetch hits Caddy with no auth → Caddy returns 401 + WWW-Authenticate
-	# → browser interprets as fresh auth challenge → re-prompts user even
-	# though they already logged in.
+	# Multiple handle blocks are evaluated in declaration order; first match
+	# wins, subsequent handles are skipped.
+
+	# Passthrough paths — never gated by basic_auth.
 	#
-	# Symptom (2026-04-25): infinite "Sign in" loop on https://hermes.uncannylabs.ai
-	# after first login. Every /api/sessions, /api/status, etc. fetch
-	# triggered another prompt.
+	# Why: Browsers auto-attach cached HTTP Basic Auth ONLY on full page
+	# navigations. Fetch/XHR calls in CORS mode (which the dashboard SPA
+	# uses for every /api/* call — Sec-Fetch-Mode: cors visible in access
+	# logs) do NOT carry cached basic_auth credentials, even on same-origin
+	# requests. If Caddy returns 401 + WWW-Authenticate on those fetches,
+	# the browser interprets as fresh challenge and re-prompts. Infinite
+	# loop after first login. Also relevant: <script crossorigin> and
+	# <link crossorigin> tags in the dashboard's index.html.
 	#
-	# Fix: bypass basic_auth for the API + static surface. Dashboard's own
-	# ephemeral session token (X-Hermes-Session-Token, regenerated per
-	# dashboard restart, injected into the SPA HTML) is the real auth on
-	# /api/* — and its 401 does NOT include WWW-Authenticate, so it
-	# doesn't trigger browser prompts.
+	# These paths contain no secrets — compiled JS/CSS, icons, fonts, the
+	# REST API surface. The dashboard's own ephemeral session token
+	# (X-Hermes-Session-Token, regenerated per dashboard restart, injected
+	# into the SPA HTML) is the real auth on /api/* — and its 401 does NOT
+	# include WWW-Authenticate, so it doesn't trigger browser prompts.
 	#
-	# Security model: basic_auth gates the perimeter (initial page load
-	# of /, /sessions, /config, etc — full page navigations). The session
-	# token gates /api/* (defense in depth). An attacker can hit /api/*
-	# without basic_auth but can't get a valid session token without
-	# loading / first, which IS gated.
+	# Security model: basic_auth gates the perimeter (initial / load and
+	# SPA route loads — full page navigations). Session token gates /api/*
+	# at the application layer. Attacker can probe /api/* without basic_auth
+	# but can't get a valid session token without first loading / which IS
+	# gated.
 	@passthrough path /api/* /assets/* /dashboard-plugins/* /favicon.ico /favicon.svg /robots.txt /manifest.json /apple-touch-icon.png
+
 	handle @passthrough {
 		reverse_proxy 127.0.0.1:9119 {
 			header_up Host 127.0.0.1
 		}
 	}
 
-	# All other paths (/, /sessions, /config, /skills, /plugins, /files,
-	# /cron, /logs, /analytics, /system, etc. — i.e., SPA navigation routes
-	# that load the index.html shell) require Basic Auth.
+	# Default catch-all — gates the SPA navigation routes (/, /sessions,
+	# /config, /skills, /plugins, /files, /cron, /logs, /analytics, etc.)
+	# Browser auto-attaches basic_auth on these because they're full page
+	# navigations.
+	#
 	# Username: hermes
 	# Password: $HERMES_PASSWORD (bcrypt hash computed at entrypoint startup)
-	basic_auth {
-		hermes {$HERMES_PASSWORD_HASH}
-	}
-
-	# Reverse proxy to the native Hermes dashboard on loopback.
-	# Host header rewrite satisfies the dashboard's DNS-rebinding protection
-	# (it accepts only loopback hostnames when bound to 127.0.0.1).
-	reverse_proxy 127.0.0.1:9119 {
-		header_up Host 127.0.0.1
+	handle {
+		basic_auth {
+			hermes {$HERMES_PASSWORD_HASH}
+		}
+		# Reverse proxy to native Hermes dashboard on loopback. Host
+		# header rewrite satisfies the dashboard's DNS-rebinding protection
+		# (Host allowlist in loopback bind mode).
+		reverse_proxy 127.0.0.1:9119 {
+			header_up Host 127.0.0.1
+		}
 	}
 }
