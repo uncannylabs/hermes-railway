@@ -11,7 +11,32 @@
 		level INFO
 	}
 
-	# Gate the entire surface behind HTTP Basic Auth.
+	# Public static assets — bypass basic_auth.
+	#
+	# The dashboard's index.html includes <script crossorigin> and
+	# <link crossorigin> tags pointing at /assets/index-*.js + .css.
+	# Browsers (notably mobile Safari) fetching crossorigin="anonymous"
+	# resources do NOT reliably attach cached HTTP Basic Auth credentials,
+	# even though the asset is same-origin. The asset request hits Caddy
+	# without auth → 401 + WWW-Authenticate → fresh login prompt.
+	#
+	# Symptom: every dashboard rebuild changes the bundle hash, the cached
+	# asset is invalidated, the browser refetches, and the user gets
+	# prompted in an infinite loop. Triggered by our nightly auto-rebuild
+	# pulling fresh nousresearch/hermes-agent:latest with new bundle hashes.
+	#
+	# These paths contain no secrets — compiled JS/CSS/icons/fonts only —
+	# so leaving them un-gated is safe. The sensitive surface (/, /api/*)
+	# stays behind Basic Auth.
+	@public path /assets/* /favicon.ico /favicon.svg /robots.txt /manifest.json /apple-touch-icon.png
+	handle @public {
+		reverse_proxy 127.0.0.1:9119 {
+			header_up Host 127.0.0.1
+		}
+	}
+
+	# Everything else (dashboard SPA root, /api/*, /api/plugins/*) is gated
+	# behind HTTP Basic Auth.
 	# Username: hermes
 	# Password: $HERMES_PASSWORD (bcrypt hash computed at entrypoint startup)
 	basic_auth {
