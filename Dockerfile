@@ -42,7 +42,4 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 3000
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-# TEMP DIAG (2026-05-08): gateway crashes immediately on upstream v0.13 image.
-# Keep container alive so we can SSH in and read /root/.hermes/logs/gateway.log
-# from the volume. Revert this CMD after capturing the error.
-CMD ["sleep", "infinity"]
+CMD ["/entrypoint.sh"]
